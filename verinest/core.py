@@ -360,6 +360,10 @@ def simulate(project, top=None, overrides=None, current_file=None):
         res['timeout'] = True
         res['error'] = ('Simulation stopped after %d s. Your testbench probably never calls $finish '
                         '(a free-running clock keeps the simulation alive forever).' % SIM_TIMEOUT)
+    # show short file names instead of the internal staging path
+    for prefix in (stage + os.sep, build + os.sep, base + os.sep):
+        out = out.replace(prefix, '')
+        res['compile_output'] = res['compile_output'].replace(prefix, '')
     if len(out) > MAX_OUTPUT:
         out = out[:MAX_OUTPUT] + '\n... output truncated ...\n'
     res['stdout'] = out

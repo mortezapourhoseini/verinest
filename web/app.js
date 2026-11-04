@@ -19,7 +19,9 @@
     lintTimer: null, lintSeq: 0,
     theme: document.documentElement.dataset.theme || 'dark',
     topChoice: {},              // project -> chosen top ('' = auto)
+    autoSave: (() => { try { return localStorage.getItem('vn-autosave') !== 'off'; } catch (e) { return true; } })(),
   };
+  const AUTO_SAVE_DELAY = 1000;   // ms after the last keystroke
   let editor = null, monaco = null, wave = null, decorations = [];
   let pendingCaret = null;   // where to put the caret after a multi-line suggestion is accepted
 
@@ -367,6 +369,8 @@
         const d = model.getValue() !== tab.saved;
         if (d !== tab.dirty) { tab.dirty = d; renderTabs(); renderTree(); }
         if (tab.project === S.project && lang === 'verilog') scheduleLint();
+        clearTimeout(tab.saveTimer);
+        if (d && S.autoSave) tab.saveTimer = setTimeout(() => autoSaveTab(tab), AUTO_SAVE_DELAY);
       });
       S.tabs.push(tab);
     }
@@ -416,6 +420,7 @@
       await saveTab(t);
     }
     S.tabs.splice(i, 1);
+    clearTimeout(t.saveTimer);
     t.model.dispose();
     if (S.active === key) {
       const n = S.tabs[i] || S.tabs[i - 1];
@@ -427,9 +432,28 @@
   function closeTabs(pred, force) { S.tabs.filter(pred).map(t => t.key).forEach(k => closeTab(k, force)); }
 
   async function saveTab(t) {
+    clearTimeout(t.saveTimer);
     const content = t.model.getValue();
     await api('/api/file/save', { project: t.project, path: t.path, content });
-    t.saved = content; t.dirty = false;
+    t.saved = content;
+    // the user may have typed while the save was in flight
+    t.dirty = !t.model.isDisposed() && t.model.getValue() !== content;
+  }
+  async function autoSaveTab(t) {
+    if (!S.autoSave || !S.tabs.includes(t) || t.model.isDisposed() || !t.dirty) return;
+    try { await saveTab(t); renderTabs(); renderTree(); }
+    catch (e) { toast('Auto save failed: ' + e.message, true); }
+  }
+  function setAutoSave(on) {
+    S.autoSave = on;
+    try { localStorage.setItem('vn-autosave', on ? 'on' : 'off'); } catch (e) { /* ignore */ }
+    renderAutoSave();
+    if (on) S.tabs.forEach(t => { if (t.dirty) autoSaveTab(t); });
+    toast('Auto Save ' + (on ? 'on' : 'off'));
+  }
+  function renderAutoSave() {
+    $('#sbAutoSave').innerHTML = vnIcon(S.autoSave ? 'check' : 'close') + ' Auto Save: ' + (S.autoSave ? 'On' : 'Off');
+    $('#sbAutoSave').title = 'Click to turn auto save ' + (S.autoSave ? 'off' : 'on') + ' (saves ' + AUTO_SAVE_DELAY / 1000 + ' s after you stop typing)';
   }
   async function saveActive() {
     const t = S.tabs.find(x => x.key === S.active);
@@ -778,7 +802,7 @@
       title: 'VeriNest — shortcuts', cancel: false, ok: 'Close',
       body: `<table>
         <tr><td><kbd>F5</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd></td><td>Run simulation</td></tr>
-        <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Save file</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Save file (Auto Save is on by default: status bar)</td></tr>
         <tr><td><kbd>Tab</kbd> or <kbd>Enter</kbd></td><td>Accept the grey suggestion</td></tr>
         <tr><td><kbd>Esc</kbd></td><td>Dismiss the suggestion</td></tr>
         <tr><td><kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd></td><td>Clean code (format)</td></tr>
@@ -806,6 +830,8 @@
     S.tools = st.tools; S.workspace = st.workspace;
     if (st.settings && st.settings.theme && !localStorage.getItem('vn-theme')) applyTheme(st.settings.theme);
     renderTools();
+    renderAutoSave();
+    $('#sbAutoSave').onclick = () => setAutoSave(!S.autoSave);
     await Promise.all([refreshProjects(), loadExamples()]);
     renderProblems(); updateStatus();
 

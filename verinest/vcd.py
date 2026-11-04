@@ -33,8 +33,12 @@ def parse_vcd(path):
                 kind = next(tokens_iter)
                 name = next(tokens_iter)
                 next(tokens_iter)  # $end
-                node = {'name': name, 'kind': kind, 'children': [], 'signals': []}
-                stack[-1]['children'].append(node)
+                # Icarus may open the same scope more than once (e.g. once for
+                # variables, once for nets): merge them into one node
+                node = next((c for c in stack[-1]['children'] if c['name'] == name), None)
+                if node is None:
+                    node = {'name': name, 'kind': kind, 'children': [], 'signals': []}
+                    stack[-1]['children'].append(node)
                 stack.append(node)
             elif tok == '$upscope':
                 next(tokens_iter)
@@ -56,8 +60,9 @@ def parse_vcd(path):
                 if code not in signals:
                     signals[code] = {'id': code, 'name': name, 'width': width, 'type': vtype, 'path': path_name}
                     changes[code] = []
-                stack[-1]['signals'].append({'id': code, 'name': name, 'width': width, 'type': vtype,
-                                             'path': path_name})
+                if not any(x['name'] == name for x in stack[-1]['signals']):
+                    stack[-1]['signals'].append({'id': code, 'name': name, 'width': width, 'type': vtype,
+                                                 'path': path_name})
             elif tok == '$enddefinitions':
                 next(tokens_iter)
                 in_defs = False

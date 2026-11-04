@@ -63,6 +63,22 @@ class TestExplain(unittest.TestCase):
         self.assertEqual(explain.enrich(d, {})[0]['title'], 'Latch inferred')
 
 
+class TestVcd(unittest.TestCase):
+    def test_repeated_scopes_are_merged(self):
+        import tempfile
+        from verinest.vcd import parse_vcd
+        txt = ('$timescale 1ps $end\n$scope module tb $end\n$var reg 4 ! a [3:0] $end\n$upscope $end\n'
+               '$scope module tb $end\n$var wire 4 # y [3:0] $end\n$upscope $end\n$enddefinitions $end\n'
+               '#0\nb0 !\nb1 #\n#10\nb11 #\n')
+        with tempfile.NamedTemporaryFile('w', suffix='.vcd', delete=False) as f:
+            f.write(txt)
+        d = parse_vcd(f.name)
+        os.unlink(f.name)
+        self.assertEqual(len(d['scopes']), 1)
+        self.assertEqual([x['name'] for x in d['scopes'][0]['signals']], ['a[3:0]', 'y[3:0]'])
+        self.assertEqual(d['changes']['#'], [[0, '0001'], [10, '0011']])
+
+
 class TestTbgen(unittest.TestCase):
     def test_counter_testbench(self):
         src = open(os.path.join(ROOT, 'examples', '07_counter', 'counter.v')).read()

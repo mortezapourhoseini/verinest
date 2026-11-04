@@ -36,6 +36,7 @@ interface built for **learning**:
 |---|---|
 | **Editor** | The VS Code editor engine (Monaco) with Verilog highlighting, bracket colours, minimap, dark and light themes |
 | **Inline suggestion** | One grey "ghost" suggestion as you type: <kbd>Tab</kbd> or <kbd>Enter</kbd> accepts it, <kbd>Esc</kbd> dismisses it. It completes block skeletons (`always`, `begin/end`, `case`, `if/else`, `module`…), instantiations of your own modules with every port connected, `$display`/`$dumpvars` arguments and names declared in the file. After accepting a block the cursor jumps inside it |
+| **Auto Save** | Saves 1 s after you stop typing; click *Auto Save* in the status bar to turn it off |
 | **Clean Code** | <kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> re-indents and aligns declarations. It only changes whitespace, so it never breaks code |
 | **Error checking** | Live while you type: Icarus Verilog, Verilator (if installed) and structural checks (unmatched `begin`/`end`, missing `;`…). Every problem has an **explanation** and a **how to fix** |
 | **Testbench generator** | Creates a runnable testbench from any module: clock, reset, waveform dump and random stimulus |

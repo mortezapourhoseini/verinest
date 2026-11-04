@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0 (2026-11-04)
+- **Auto Save**: files are saved 1 s after you stop typing (toggle in the status bar)
+- Waveform: testbench outputs such as `y` are shown by default (Icarus can split one scope into
+  several VCD blocks; these are now merged)
+- Console: short file names instead of the internal build path in simulator messages
+
 ## 1.0.3 (2026-11-04), first public release
 - Desktop window (Chrome/Chromium app mode, pywebview or browser fallback)
 - Monaco editor with one-at-a-time inline suggestions (Tab / Enter to accept)
