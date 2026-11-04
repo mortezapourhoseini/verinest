@@ -1,0 +1,3 @@
+{"title": "Ripple-Carry Adder", "level": "basic", "project": "ripple_carry_adder",
+ "description": "An N-bit adder made by chaining full adders with a generate loop. Watch the carry ripple through the stages in the waveform.",
+ "top": "tb_ripple_carry_adder", "open": "ripple_carry_adder.v"}

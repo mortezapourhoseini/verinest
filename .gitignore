@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.vcd
+*.vvp
+.verinest/
+dist/
+*.tar.gz

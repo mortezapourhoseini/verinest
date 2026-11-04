@@ -1,0 +1,3 @@
+{"title": "Up/Down Counter", "level": "basic", "project": "counter",
+ "description": "A parameterised synchronous counter with reset, enable, load and up/down control. A good first look at clocked logic and non-blocking assignments.",
+ "top": "tb_counter", "open": "counter.v"}

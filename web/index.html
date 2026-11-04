@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<title>VeriNest</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<script>window.VN_TOKEN = '__TOKEN__';
+try { const t = localStorage.getItem('vn-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+</head>
+<body>
+<div id="app">
+  <!-- ===== Top bar ===== -->
+  <header id="topbar">
+    <div class="brand"><img src="icon.svg" alt=""><span>VeriNest</span></div>
+    <div id="crumbs" class="crumbs"></div>
+    <div class="spacer"></div>
+    <div class="run-group">
+      <label class="top-select" title="Top module to simulate">
+        <span>Top</span>
+        <select id="topSelect"></select>
+      </label>
+      <button id="btnRun" class="btn primary" title="Compile &amp; simulate (F5)"><i data-icon="play"></i>Run</button>
+    </div>
+    <button id="btnCheck" class="btn" title="Check for errors (Ctrl+Shift+L)"><i data-icon="check"></i>Check</button>
+    <button id="btnFormat" class="btn" title="Clean up code formatting (Shift+Alt+F)"><i data-icon="sparkle"></i>Clean Code</button>
+    <button id="btnTb" class="btn" title="Generate a testbench for the module in this file"><i data-icon="flask"></i>Testbench</button>
+    <div class="sep"></div>
+    <button id="btnTheme" class="icon-btn" title="Toggle light / dark theme"><i data-icon="moon"></i></button>
+    <button id="btnHelp" class="icon-btn" title="Keyboard shortcuts &amp; help"><i data-icon="help"></i></button>
+  </header>
+
+  <div id="main">
+    <!-- ===== Activity bar ===== -->
+    <nav id="activity">
+      <button class="act active" data-view="explorer" title="Projects"><i data-icon="files"></i></button>
+      <button class="act" data-view="examples" title="Examples"><i data-icon="book"></i></button>
+    </nav>
+
+    <!-- ===== Sidebar ===== -->
+    <aside id="sidebar">
+      <section id="view-explorer" class="view active">
+        <div class="view-head">
+          <span>PROJECTS</span>
+          <button class="icon-btn sm" id="btnNewProject" title="New project"><i data-icon="plus"></i></button>
+        </div>
+        <div id="projectTree" class="tree"></div>
+      </section>
+      <section id="view-examples" class="view">
+        <div class="view-head"><span>EXAMPLES</span></div>
+        <p class="view-hint">Open an example as a new project. Each one comes with a self-checking testbench &mdash; press <kbd>F5</kbd> to run it.</p>
+        <div id="exampleList"></div>
+      </section>
+    </aside>
+    <div class="resizer v" id="sideResizer"></div>
+
+    <!-- ===== Editor + panel ===== -->
+    <section id="work">
+      <div id="tabs"></div>
+      <div id="editorWrap">
+        <div id="editor"></div>
+        <div id="welcome">
+          <div class="welcome-inner">
+            <img src="icon.svg" class="welcome-logo" alt="">
+            <h1>VeriNest</h1>
+            <p class="tagline">Write, check and simulate Verilog &mdash; and see every wave.</p>
+            <div class="welcome-actions">
+              <button class="card-btn" id="wNew"><i data-icon="plus"></i><b>New project</b><span>Start from an empty module</span></button>
+              <button class="card-btn" id="wExample"><i data-icon="book"></i><b>Open an example</b><span>Adders, Booth, ALU, FSM, a tiny CPU&hellip;</span></button>
+            </div>
+            <div class="shortcuts">
+              <div><kbd>F5</kbd> Run simulation</div>
+              <div><kbd>Ctrl</kbd>+<kbd>S</kbd> Save</div>
+              <div><kbd>Tab</kbd> / <kbd>Enter</kbd> Accept suggestion</div>
+              <div><kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> Clean code</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="resizer h" id="panelResizer"></div>
+      <div id="panel">
+        <div class="panel-tabs">
+          <button class="ptab active" data-panel="problems">Problems <span class="badge" id="probBadge">0</span></button>
+          <button class="ptab" data-panel="console">Console</button>
+          <button class="ptab" data-panel="wave">Waveform</button>
+          <div class="spacer"></div>
+          <span id="runStatus" class="run-status"></span>
+          <button class="icon-btn sm" id="btnPanelMax" title="Maximize panel"><i data-icon="max"></i></button>
+          <button class="icon-btn sm" id="btnPanelHide" title="Hide panel (Ctrl+J)"><i data-icon="down"></i></button>
+        </div>
+        <div class="panel-body">
+          <div id="panel-problems" class="pview active"><div id="problems"></div></div>
+          <div id="panel-console" class="pview"><pre id="console"></pre></div>
+          <div id="panel-wave" class="pview"><div id="wave"></div></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== Status bar ===== -->
+  <footer id="statusbar">
+    <span id="sbProblems" class="sb-item clickable"></span>
+    <span id="sbTools" class="sb-item"></span>
+    <div class="spacer"></div>
+    <span id="sbPos" class="sb-item"></span>
+    <span class="sb-item">Verilog-2005</span>
+    <span class="sb-item">Spaces: 4</span>
+  </footer>
+</div>
+
+<!-- ===== Modal ===== -->
+<div id="modal" class="modal hidden">
+  <div class="modal-box">
+    <h3 id="modalTitle"></h3>
+    <div id="modalBody"></div>
+    <input id="modalInput" type="text" spellcheck="false">
+    <div class="modal-actions">
+      <button class="btn" id="modalCancel">Cancel</button>
+      <button class="btn primary" id="modalOk">OK</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script src="vendor/monaco/vs/loader.js"></script>
+<script src="icons.js"></script>
+<script src="suggest.js"></script>
+<script src="waveform.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

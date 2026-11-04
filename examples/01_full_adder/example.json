@@ -1,0 +1,3 @@
+{"title": "Half & Full Adder", "level": "basic", "project": "full_adder",
+ "description": "The first building block: a half adder and a full adder built from two half adders. Exhaustive testbench over all 8 input combinations.",
+ "top": "tb_full_adder", "open": "full_adder.v"}

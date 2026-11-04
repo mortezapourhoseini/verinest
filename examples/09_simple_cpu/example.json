@@ -1,0 +1,3 @@
+{"title": "Simple CPU", "level": "advanced", "project": "simple_cpu",
+ "description": "A tiny single-cycle 8-bit CPU: 4 registers, 16-bit instructions (LDI, ADD, SUB, AND, OR, ADDI, JMP, BZ, BNZ, HALT) and a ROM program that sums 1..10. Watch pc, instr and r0..r3 change every clock.",
+ "top": "tb_cpu", "open": "cpu.v"}

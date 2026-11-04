@@ -1,0 +1,3 @@
+{"title": "Carry-Lookahead Adder", "level": "intermediate", "project": "cla_adder",
+ "description": "A 4-bit carry-lookahead block (generate/propagate) and an 8-bit adder built from two of them. Randomised testbench compares against the + operator.",
+ "top": "tb_cla_adder_8", "open": "cla_4bit.v"}

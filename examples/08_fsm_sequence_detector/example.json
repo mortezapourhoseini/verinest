@@ -1,0 +1,3 @@
+{"title": "FSM: Sequence Detector", "level": "intermediate", "project": "sequence_detector",
+ "description": "A Moore finite-state machine that detects the bit pattern 1011 (overlaps allowed), written in the classic two-block style: state register + next-state logic.",
+ "top": "tb_seq_detector", "open": "seq_detector.v"}

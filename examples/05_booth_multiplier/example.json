@@ -1,0 +1,3 @@
+{"title": "Booth Multiplier", "level": "advanced", "project": "booth_multiplier",
+ "description": "Sequential radix-2 Booth multiplier for signed 8x8 -> 16-bit numbers with a start/busy/done handshake. Follow A, Q and q_1 step by step in the waveform.",
+ "top": "tb_booth_multiplier", "open": "booth_multiplier.v"}

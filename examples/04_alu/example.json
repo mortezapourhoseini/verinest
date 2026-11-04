@@ -1,0 +1,3 @@
+{"title": "8-bit ALU", "level": "intermediate", "project": "alu",
+ "description": "ADD, SUB, AND, OR, XOR, SLT, shifts and the Zero / Carry / Overflow / Negative flags. A reference model in the testbench checks 400 random operations.",
+ "top": "tb_alu", "open": "alu.v"}
