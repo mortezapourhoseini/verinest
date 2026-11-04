@@ -5,7 +5,7 @@
 <h1 align="center">VeriNest</h1>
 
 <p align="center">
-  A lightweight, offline desktop IDE for <b>learning and testing Verilog</b> on Linux.<br>
+  A lightweight, offline desktop IDE for <b>learning and testing Verilog</b> on Linux and Windows.<br>
   Write a module, get instant explained errors, simulate with Icarus Verilog and inspect the waveforms, all in one window.
 </p>
 
@@ -57,7 +57,21 @@ interface built for **learning**:
 
 ## Installation
 
-Tested on **Linux Mint 22 / Ubuntu 24.04**. It should also work on other Debian-based
+### Windows 10 / 11
+
+Download **`VeriNest-x.y.z-Setup.exe`** from the
+[Releases](https://github.com/mortezapourhoseini/verinest/releases) page (or the latest
+[Windows build](https://github.com/mortezapourhoseini/verinest/actions/workflows/build-windows.yml)
+artifact) and run it. No administrator rights are needed, and Python and Icarus Verilog are
+included. VeriNest opens in a Microsoft Edge app window. A portable `.zip` is also available:
+unzip it and run `VeriNest.exe`.
+
+Windows may show *"Windows protected your PC"* because the installer is not code-signed:
+click **More info → Run anyway**. Verilator is not included on Windows; it is optional.
+
+### Linux
+
+Linux: tested on **Linux Mint 22 / Ubuntu 24.04**. It should also work on other Debian-based
 distributions. Requirements: Python 3.8+, Icarus Verilog, and optionally Verilator.
 No pip packages and no internet connection are needed after installation.
 

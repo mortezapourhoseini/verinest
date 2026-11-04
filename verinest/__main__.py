@@ -19,6 +19,38 @@ APP_BROWSERS = ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-b
                 'microsoft-edge', 'vivaldi']
 
 
+def _app_browsers():
+    """Browsers that support --app (a standalone window), best first."""
+    found = []
+    if os.name == 'nt':
+        env = os.environ
+        roots = [env.get('ProgramFiles(x86)', r'C:\Program Files (x86)'), env.get('ProgramFiles', r'C:\Program Files'),
+                 env.get('LOCALAPPDATA', '')]
+        rels = [r'Microsoft\Edge\Application\msedge.exe', r'Google\Chrome\Application\chrome.exe',
+                r'BraveSoftware\Brave-Browser\Application\brave.exe']
+        for rel in rels:            # Edge first: it is on every Windows 10/11
+            for r in roots:
+                p = os.path.join(r, rel) if r else ''
+                if p and os.path.isfile(p) and p not in found:
+                    found.append(p)
+        for n in ('msedge', 'chrome'):
+            p = shutil.which(n)
+            if p and p not in found:
+                found.append(p)
+    else:
+        for b in APP_BROWSERS:
+            p = shutil.which(b)
+            if p:
+                found.append(p)
+    return found
+
+
+def _data_dir():
+    if os.name == 'nt':
+        return os.path.join(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'VeriNest')
+    return os.path.expanduser('~/.config/verinest')
+
+
 def _url(srv):
     return 'http://127.0.0.1:%d/?t=%s' % (srv.server_address[1], server.TOKEN)
 
@@ -36,11 +68,8 @@ def run_window(srv, force_browser=False):
     url = _url(srv)
     if not force_browser:
         # 1) Chrome/Chromium "app mode": a standalone window, no tabs or address bar
-        for b in APP_BROWSERS:
-            exe = shutil.which(b)
-            if not exe:
-                continue
-            profile = os.path.expanduser('~/.config/verinest/window')
+        for exe in _app_browsers():
+            profile = os.path.join(_data_dir(), 'window')
             os.makedirs(profile, exist_ok=True)
             p = subprocess.Popen([exe, '--app=' + url, '--user-data-dir=' + profile, '--class=VeriNest',
                                   '--name=VeriNest', '--window-size=1440,900', '--no-first-run',
@@ -69,47 +98,16 @@ def run_window(srv, force_browser=False):
 
 
 def selftest():
-    import json
-    ok_all = True
-    with tempfile.TemporaryDirectory() as tmp:
-        core.PROJECTS = os.path.join(tmp, 'projects')
-        core.WORKSPACE = tmp
-        core.ensure_workspace()
-        print('VeriNest %s self-test' % __version__)
-        st = core.tool_status()
-        for k, v in st.items():
-            print('  %-10s %s' % (k, v['version'] or 'NOT FOUND'))
-        if not st['iverilog']['path']:
-            print('\nIcarus Verilog is missing: sudo apt install iverilog')
-            return 1
-        print()
-        for ex in core.list_examples():
-            name, meta = core.open_example(ex['id'])
-            r = core.simulate(name, meta.get('top'))
-            lint = core.lint(name)
-            errs = [d for d in lint['diagnostics'] if d['severity'] == 'error']
-            warns = [d for d in lint['diagnostics'] if d['severity'] != 'error']
-            status = 'PASS' if r.get('passed') else 'FAIL'
-            if status != 'PASS':
-                ok_all = False
-            print('  [%s] %-28s %5.2fs  lint: %d errors, %d warnings%s' % (
-                status, ex['id'], r.get('elapsed', 0), len(errs), len(warns),
-                '' if r.get('vcd') else '  (no waveform!)'))
-            if status != 'PASS' or errs:
-                for d in r.get('diagnostics', []) + errs:
-                    print('        %s:%d: %s' % (d['file'], d['line'], d['message']))
-                if r.get('error'):
-                    print('        ' + r['error'])
-                tail = (r.get('stdout') or '').strip().splitlines()[-8:]
-                for line in tail:
-                    print('        > ' + line)
-            for d in warns:
-                print('        warning %s:%d: [%s] %s' % (d['file'], d['line'], d.get('code', ''), d['message']))
-    print('\nALL EXAMPLES PASSED' if ok_all else '\nSOME EXAMPLES FAILED')
-    return 0 if ok_all else 1
+    return core.run_selftest(lambda line='': print(line, flush=True), __version__)
 
 
 def main():
+    # a windowed build (no console) has no stdout: log to a file instead
+    if sys.stdout is None or sys.stderr is None:
+        os.makedirs(_data_dir(), exist_ok=True)
+        log = open(os.path.join(_data_dir(), 'verinest.log'), 'w', encoding='utf-8')
+        sys.stdout = sys.stdout or log
+        sys.stderr = sys.stderr or log
     ap = argparse.ArgumentParser(prog='verinest', description='VeriNest - Verilog learning IDE')
     ap.add_argument('--browser', action='store_true', help='open in the default browser')
     ap.add_argument('--serve', action='store_true', help='run the server only')

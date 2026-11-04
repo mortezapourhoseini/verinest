@@ -163,8 +163,8 @@ def explain(message, source='iverilog', code=None):
     return None
 
 
-IV_RE = re.compile(r'^(?P<file>[^:\n]+?):(?P<line>\d+):\s*(?:(?P<sev>error|warning|sorry)\s*:\s*)?(?P<msg>.*)$')
-VL_RE = re.compile(r'^%(?P<sev>Error|Warning)(?:-(?P<code>[A-Z0-9_]+))?:\s*(?P<file>[^:\n]+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<msg>.*)$')
+IV_RE = re.compile(r'^(?P<file>(?:[A-Za-z]:)?[^:\n]+?):(?P<line>\d+):\s*(?:(?P<sev>error|warning|sorry)\s*:\s*)?(?P<msg>.*)$')
+VL_RE = re.compile(r'^%(?P<sev>Error|Warning)(?:-(?P<code>[A-Z0-9_]+))?:\s*(?P<file>(?:[A-Za-z]:)?[^:\n]+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<msg>.*)$')
 
 
 def parse_iverilog(output, path_map):

@@ -5,6 +5,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import sys
 import time
 
 from . import explain, vparse
@@ -21,8 +22,43 @@ SIM_TIMEOUT = float(os.environ.get('VERINEST_SIM_TIMEOUT', '10'))
 MAX_OUTPUT = 200_000
 
 
+IS_WIN = os.name == 'nt'
+NO_WINDOW = 0x08000000 if IS_WIN else 0     # CREATE_NO_WINDOW: no console flashes on Windows
+
+
+def _bundled_dirs():
+    """Icarus Verilog shipped next to VeriNest (Windows build), then common install places."""
+    roots = [APP_DIR, os.path.dirname(os.path.abspath(sys.executable))]
+    dirs = [os.path.join(r, 'iverilog', 'bin') for r in roots]
+    if IS_WIN:
+        dirs += [r'C:\iverilog\bin', r'C:\Program Files\iverilog\bin']
+    return [d for d in dirs if os.path.isdir(d)]
+
+
+# make bundled tools visible to every subprocess (vvp needs its own folder on PATH on Windows)
+for _d in reversed(_bundled_dirs()):
+    if _d not in os.environ.get('PATH', ''):
+        os.environ['PATH'] = _d + os.pathsep + os.environ.get('PATH', '')
+
+
 def which(name):
     return shutil.which(name)
+
+
+def run(cmd, **kw):
+    """subprocess.run with UTF-8 text and no console window on Windows."""
+    return subprocess.run(cmd, capture_output=True, encoding='utf-8', errors='replace',
+                          creationflags=NO_WINDOW, **kw)
+
+
+def read_text(path):
+    with open(path, 'r', encoding='utf-8', errors='replace') as f:
+        return f.read()
+
+
+def write_text(path, text):
+    with open(path, 'w', encoding='utf-8', newline='') as f:
+        f.write(text)
 
 
 def tool_status():
@@ -33,7 +69,7 @@ def tool_status():
         if p:
             try:
                 arg = '-V' if t == 'iverilog' else ('--version' if t == 'verilator' else '-V')
-                out = subprocess.run([p, arg], capture_output=True, text=True, timeout=5)
+                out = run([p, arg], timeout=5)
                 txt = (out.stdout or out.stderr).strip().splitlines()
                 ver = txt[0] if txt else ''
             except Exception:
@@ -75,7 +111,7 @@ def list_projects():
             for fn in sorted(fns):
                 if fn.startswith('.'):
                     continue
-                rel = os.path.relpath(os.path.join(dp, fn), p)
+                rel = os.path.relpath(os.path.join(dp, fn), p).replace(os.sep, '/')
                 files.append(rel)
         res.append({'name': name, 'files': sorted(files, key=_file_sort), 'mtime': os.path.getmtime(p)})
     return res
@@ -124,22 +160,18 @@ def create_project(name):
     mod = re.sub(r'\W', '_', name).lower()
     if not re.match(r'[a-z_]', mod):
         mod = 'm_' + mod
-    with open(os.path.join(p, mod + '.v'), 'w') as f:
-        f.write(NEW_MODULE.format(name=mod))
+    write_text(os.path.join(p, mod + '.v'), NEW_MODULE.format(name=mod))
     return name
 
 
 def read_file(project, rel):
-    p = project_path(project, rel)
-    with open(p, 'r', errors='replace') as f:
-        return f.read()
+    return read_text(project_path(project, rel))
 
 
 def write_file(project, rel, content):
     p = project_path(project, rel)
     os.makedirs(os.path.dirname(p), exist_ok=True)
-    with open(p, 'w') as f:
-        f.write(content)
+    write_text(p, content)
 
 
 def delete_path(project, rel=''):
@@ -180,8 +212,7 @@ def project_sources(project, overrides=None):
         for fn in fns:
             if fn.endswith(('.v', '.vh', '.sv')) and not fn.startswith('.'):
                 rel = os.path.relpath(os.path.join(dp, fn), base)
-                with open(os.path.join(dp, fn), 'r', errors='replace') as f:
-                    files[rel] = f.read()
+                files[rel.replace(os.sep, '/')] = read_text(os.path.join(dp, fn))
     for k, v in (overrides or {}).items():
         if k.endswith(('.v', '.vh', '.sv')):
             files[k] = v
@@ -197,8 +228,7 @@ def list_examples():
         p = os.path.join(EXAMPLES_DIR, name)
         meta_p = os.path.join(p, 'example.json')
         if os.path.isfile(meta_p):
-            with open(meta_p) as f:
-                meta = json.load(f)
+            meta = json.loads(read_text(meta_p))
             meta['id'] = name
             meta['files'] = sorted([x for x in os.listdir(p) if x != 'example.json'], key=_file_sort)
             res.append(meta)
@@ -210,27 +240,33 @@ def open_example(ex_id):
     src = os.path.join(EXAMPLES_DIR, os.path.basename(ex_id))
     if not os.path.isdir(src):
         raise ValueError('Unknown example')
-    with open(os.path.join(src, 'example.json')) as f:
-        meta = json.load(f)
+    meta = json.loads(read_text(os.path.join(src, 'example.json')))
     name = unique_project_name(meta.get('project', ex_id))
     shutil.copytree(src, os.path.join(PROJECTS, name), ignore=shutil.ignore_patterns('example.json'))
     return name, meta
 
 
 # ---------------------------------------------------------------- tools
-def _stage(files, workdir):
-    """Write sources into workdir; return list of abs paths and map abs/rel->rel."""
+def _stage(files, workdir, cwd=None):
+    """Write sources into workdir.
+
+    Returns the source paths *relative to cwd* (the tools run with that working
+    directory, so their messages contain short paths without drive letters) and a
+    map from every spelling of a path the tools may print back to the project file.
+    """
+    cwd = cwd or workdir
     paths, pmap = [], {}
     for rel, text in files.items():
-        ap = os.path.join(workdir, rel)
+        ap = os.path.join(workdir, *rel.split('/'))
         os.makedirs(os.path.dirname(ap), exist_ok=True)
-        with open(ap, 'w') as f:
-            f.write(text)
+        write_text(ap, text)
+        rp = os.path.relpath(ap, cwd)
         if rel.endswith(('.v', '.sv')):
-            paths.append(ap)
-        pmap[ap] = rel
-        pmap[rel] = rel
-        pmap[os.path.basename(rel)] = rel
+            paths.append(rp)
+        for k in (ap, rp, rel, os.path.basename(rel)):
+            pmap[k] = rel
+            pmap[k.replace('\\', '/')] = rel
+            pmap[k.replace('/', '\\')] = rel
     return paths, pmap
 
 
@@ -244,22 +280,19 @@ def lint(project, overrides=None):
         iv = which('iverilog')
         if iv and paths:
             try:
-                r = subprocess.run([iv, '-g2005', '-Wall', '-Wno-timescale', '-t', 'null', '-I', wd] + paths,
-                                   capture_output=True, text=True, timeout=20, cwd=wd)
+                r = run([iv, '-g2005', '-Wall', '-Wno-timescale', '-t', 'null', '-I', '.'] + paths, timeout=20, cwd=wd)
                 diags += explain.parse_iverilog(r.stdout + '\n' + r.stderr, pmap)
             except subprocess.TimeoutExpired:
                 pass
         vl = which('verilator')
         if vl and paths:
             try:
-                r = subprocess.run([vl, '--lint-only', '-Wall', '-Wno-fatal', '--timing', '-Wno-DECLFILENAME',
-                                    '-Wno-MULTITOP', '-Wno-UNUSED', '-I' + wd] + paths,
-                                   capture_output=True, text=True, timeout=30, cwd=wd)
+                r = run([vl, '--lint-only', '-Wall', '-Wno-fatal', '--timing', '-Wno-DECLFILENAME',
+                                    '-Wno-MULTITOP', '-Wno-UNUSED', '-I.'] + paths, timeout=30, cwd=wd)
                 out = r.stdout + '\n' + r.stderr
                 if '--timing' in out and 'Invalid option' in out:   # verilator 4.x
-                    r = subprocess.run([vl, '--lint-only', '-Wall', '-Wno-fatal', '-Wno-DECLFILENAME',
-                                        '-Wno-MULTITOP', '-Wno-UNUSED', '-Wno-STMTDLY', '-I' + wd] + paths,
-                                       capture_output=True, text=True, timeout=30, cwd=wd)
+                    r = run([vl, '--lint-only', '-Wall', '-Wno-fatal', '-Wno-DECLFILENAME',
+                                        '-Wno-MULTITOP', '-Wno-UNUSED', '-Wno-STMTDLY', '-I.'] + paths, timeout=30, cwd=wd)
                     out = r.stdout + '\n' + r.stderr
                 vd = explain.parse_verilator(out, pmap, tb_files)
                 iv_err_lines = {(d['file'], d['line']) for d in diags if d['severity'] == 'error'}
@@ -327,31 +360,30 @@ def simulate(project, top=None, overrides=None, current_file=None):
     stage = os.path.join(build, 'src')
     shutil.rmtree(stage, ignore_errors=True)
     os.makedirs(stage)
-    paths, pmap = _stage(files, stage)
+    paths, pmap = _stage(files, stage, cwd=base)
     top_mod = next((m for m in mods if m['name'] == top), None)
     has_dump = '$dumpvars' in (files.get(top_mod['file'], '') if top_mod else '') or \
         any('$dumpvars' in t for t in files.values())
     tops = ['-s', top]
     if not has_dump:
         stub = os.path.join(build, '__verinest_dump.v')
-        with open(stub, 'w') as f:
-            f.write(DUMP_STUB.format(vcd=os.path.join(build, 'auto.vcd'), top=top))
-        paths.append(stub)
+        # forward slashes: a backslash inside a Verilog string is an escape character
+        write_text(stub, DUMP_STUB.format(vcd='.verinest/auto.vcd', top=top))
+        paths.append('.verinest/__verinest_dump.v')
         tops += ['-s', '__verinest_dump']
-    out_vvp = os.path.join(build, 'sim.vvp')
-    before = {f: os.path.getmtime(os.path.join(base, f)) for f in os.listdir(base) if f.endswith('.vcd')}
-    r = subprocess.run([iv, '-g2005', '-Wall', '-Wno-timescale', '-o', out_vvp, '-I', stage] + tops + paths,
-                       capture_output=True, text=True, timeout=30, cwd=base)
+    out_vvp = os.path.join('.verinest', 'sim.vvp')
+    r = run([iv, '-g2005', '-Wall', '-Wno-timescale', '-o', out_vvp, '-I', '.verinest/src'] + tops + paths,
+            timeout=30, cwd=base)
     comp_out = r.stdout + r.stderr
-    res['compile_output'] = comp_out
     res['diagnostics'] = explain.enrich(explain.parse_iverilog(comp_out, pmap), files)
+    res['compile_output'] = comp_out.replace('.verinest/src/', '').replace('.verinest\\src\\', '')
     if r.returncode != 0:
         res['error'] = 'Compilation failed. See the Problems panel.'
         res['elapsed'] = round(time.time() - t0, 2)
         return res
     res['phase'] = 'run'
     try:
-        p = subprocess.run([vvp, '-n', out_vvp], capture_output=True, text=True, timeout=SIM_TIMEOUT, cwd=base)
+        p = run([vvp, '-n', out_vvp], timeout=SIM_TIMEOUT, cwd=base)
         out = p.stdout + p.stderr
         res['returncode'] = p.returncode
         res['ok'] = p.returncode == 0
@@ -361,7 +393,8 @@ def simulate(project, top=None, overrides=None, current_file=None):
         res['error'] = ('Simulation stopped after %d s. Your testbench probably never calls $finish '
                         '(a free-running clock keeps the simulation alive forever).' % SIM_TIMEOUT)
     # show short file names instead of the internal staging path
-    for prefix in (stage + os.sep, build + os.sep, base + os.sep):
+    for prefix in (stage + os.sep, build + os.sep, base + os.sep, '.verinest/src/', '.verinest\\src\\',
+                   '.verinest/', '.verinest\\'):
         out = out.replace(prefix, '')
         res['compile_output'] = res['compile_output'].replace(prefix, '')
     if len(out) > MAX_OUTPUT:
@@ -384,7 +417,7 @@ def simulate(project, top=None, overrides=None, current_file=None):
     if vcd and os.path.isfile(vcd) and os.path.getsize(vcd) > 0:
         try:
             res['vcd'] = parse_vcd(vcd)
-            res['vcd_file'] = os.path.relpath(vcd, base)
+            res['vcd_file'] = os.path.relpath(vcd, base).replace(os.sep, '/')
         except Exception as e:  # noqa
             res['vcd_error'] = str(e)
     res['elapsed'] = round(time.time() - t0, 2)
@@ -397,11 +430,60 @@ def load_vcd(project, rel):
     return parse_vcd(project_path(project, rel))
 
 
+# ---------------------------------------------------------------- self-test
+def run_selftest(out, version=''):
+    """Simulate every example in a throw-away workspace and report through out(line)."""
+    global PROJECTS, WORKSPACE
+    saved = (PROJECTS, WORKSPACE)
+    ok_all = True
+    tmp = tempfile.mkdtemp(prefix='verinest-selftest-')
+    try:
+        PROJECTS = os.path.join(tmp, 'projects')
+        WORKSPACE = tmp
+        ensure_workspace()
+        out('VeriNest %s self-test' % version)
+        st = tool_status()
+        for k, v in st.items():
+            out('  %-10s %s' % (k, v['version'] or 'NOT FOUND'))
+        if not st['iverilog']['path']:
+            out('')
+            out('Icarus Verilog is missing: ' + ('reinstall VeriNest' if IS_WIN else 'sudo apt install iverilog'))
+            return 1
+        out('')
+        for ex in list_examples():
+            name, meta = open_example(ex['id'])
+            r = simulate(name, meta.get('top'))
+            lr = lint(name)
+            errs = [d for d in lr['diagnostics'] if d['severity'] == 'error']
+            warns = [d for d in lr['diagnostics'] if d['severity'] != 'error']
+            status = 'PASS' if r.get('passed') else 'FAIL'
+            if status != 'PASS':
+                ok_all = False
+            out('  [%s] %-28s %5.2fs  lint: %d errors, %d warnings%s' % (
+                status, ex['id'], r.get('elapsed', 0), len(errs), len(warns),
+                '' if r.get('vcd') else '  (no waveform!)'))
+            if status != 'PASS' or errs:
+                for d in r.get('diagnostics', []) + errs:
+                    out('        %s:%d: %s' % (d['file'], d['line'], d['message']))
+                if r.get('error'):
+                    out('        ' + r['error'])
+                tail = (r.get('stdout') or '').strip().splitlines()[-8:]
+                for line in tail:
+                    out('        > ' + line)
+            for d in warns:
+                out('        warning %s:%d: [%s] %s' % (d['file'], d['line'], d.get('code', ''), d['message']))
+    finally:
+        PROJECTS, WORKSPACE = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    out('')
+    out('ALL EXAMPLES PASSED' if ok_all else 'SOME EXAMPLES FAILED')
+    return 0 if ok_all else 1
+
+
 # ---------------------------------------------------------------- settings
 def load_settings():
     try:
-        with open(CONFIG) as f:
-            return json.load(f)
+        return json.loads(read_text(CONFIG))
     except Exception:
         return {}
 
@@ -410,6 +492,5 @@ def save_settings(s):
     ensure_workspace()
     cur = load_settings()
     cur.update(s or {})
-    with open(CONFIG, 'w') as f:
-        json.dump(cur, f, indent=2)
+    write_text(CONFIG, json.dumps(cur, indent=2))
     return cur

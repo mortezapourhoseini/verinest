@@ -2,7 +2,7 @@
 
 # VeriNest
 
-یک محیط سبک و آفلاین برای **یادگیری و تست Verilog** روی لینوکس. کد ماژول را می‌نویسید، خطاها همان لحظه با توضیح نشان داده می‌شوند، با Icarus Verilog شبیه‌سازی می‌کنید و waveform را در همان پنجره می‌بینید.
+یک محیط سبک و آفلاین برای **یادگیری و تست Verilog** روی لینوکس و ویندوز. کد ماژول را می‌نویسید، خطاها همان لحظه با توضیح نشان داده می‌شوند، با Icarus Verilog شبیه‌سازی می‌کنید و waveform را در همان پنجره می‌بینید.
 
 [English](README.md)
 
@@ -30,6 +30,14 @@ Vivado و ModelSim سنگین‌اند و برای تمرین Verilog زیادی
 - **۹ نمونهٔ آماده** با تست‌بنچ خودکار: Full Adder، Ripple-Carry، CLA، ALU، Booth، Register File، Counter، FSM و یک CPU ساده
 
 ## نصب
+
+### ویندوز ۱۰ و ۱۱
+
+فایل **`VeriNest-x.y.z-Setup.exe`** را از صفحهٔ [Releases](https://github.com/mortezapourhoseini/verinest/releases) دانلود و اجرا کنید. دسترسی Administrator لازم نیست و پایتون و Icarus Verilog داخل خود نصب‌کننده هستند. برنامه در یک پنجرهٔ مستقل Edge باز می‌شود. نسخهٔ portable (فایل zip) هم هست.
+
+اگر ویندوز پیام *Windows protected your PC* نشان داد، علتش این است که نصب‌کننده امضای دیجیتال ندارد. روی **More info** و بعد **Run anyway** بزنید.
+
+### لینوکس
 
 روی Linux Mint 22 و Ubuntu 24.04 تست شده است.
 

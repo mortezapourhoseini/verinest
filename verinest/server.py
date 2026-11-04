@@ -72,6 +72,10 @@ def api(method, path, q, body):
         return core.load_vcd(q['project'], q['path'])
     if path == '/api/format':
         return {'content': formatter.format_verilog(b['content'], int(b.get('indent', 4)))}
+    if path == '/api/selftest':
+        lines = []
+        code = core.run_selftest(lines.append, __version__)
+        return {'ok': code == 0, 'report': '\n'.join(lines)}
     if path == '/api/tbgen':
         mods = vparse.parse_file(b['content'], b.get('file', ''))
         mods = [m for m in mods if m['ports']]

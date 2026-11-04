@@ -17,7 +17,7 @@ def parse_vcd(path):
     truncated = False
     in_defs = True
 
-    with open(path, 'r', errors='replace') as f:
+    with open(path, 'r', encoding='utf-8', errors='replace') as f:
         data = f.read()
     tokens_iter = iter(data.split())
     for tok in tokens_iter:

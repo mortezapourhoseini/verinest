@@ -1,0 +1,84 @@
+name: Windows build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to attach files to a GitHub release on tags
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Read version
+        id: ver
+        shell: pwsh
+        run: |
+          $v = python -c "import verinest; print(verinest.__version__)"
+          "version=$v" >> $env:GITHUB_OUTPUT
+          Write-Host "VeriNest $v"
+
+      - name: Install Icarus Verilog (Windows build from bleyer.org)
+        shell: pwsh
+        run: |
+          $url = 'https://bleyer.org/icarus/iverilog-v12-20220611-x64_setup.exe'
+          Invoke-WebRequest -Uri $url -OutFile iverilog-setup.exe -UserAgent 'Mozilla/5.0'
+          Start-Process -FilePath .\iverilog-setup.exe -Wait -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-','/DIR=C:\iverilog'
+          C:\iverilog\bin\iverilog.exe -V | Select-Object -First 1
+
+      - name: Unit tests
+        run: python -m unittest discover tests -v
+
+      - name: Self-test from source (all examples with Icarus)
+        shell: pwsh
+        run: |
+          $env:PATH = "C:\iverilog\bin;$env:PATH"
+          python -m verinest --selftest
+
+      - name: Build app with PyInstaller
+        run: |
+          python -m pip install --upgrade pip pyinstaller
+          python packaging/windows/build.py C:\iverilog
+
+      - name: Smoke test the built VeriNest.exe (with its bundled Icarus only)
+        shell: pwsh
+        run: |
+          Rename-Item C:\iverilog C:\iverilog-hidden   # make sure the bundled copy is used
+          $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -notlike '*iverilog*' }) -join ';'
+          $p = Start-Process -FilePath dist\VeriNest\VeriNest.exe -ArgumentList '--selftest' -Wait -PassThru
+          Get-Content "$env:LOCALAPPDATA\VeriNest\verinest.log"
+          if ($p.ExitCode -ne 0) { throw "self-test of the built exe failed (exit $($p.ExitCode))" }
+
+      - name: Build installer (Inno Setup)
+        shell: pwsh
+        run: |
+          iscc /DAppVersion=${{ steps.ver.outputs.version }} packaging\windows\installer.iss
+
+      - name: Portable zip
+        shell: pwsh
+        run: Compress-Archive -Path dist\VeriNest -DestinationPath dist\VeriNest-${{ steps.ver.outputs.version }}-windows-portable.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VeriNest-${{ steps.ver.outputs.version }}-windows
+          path: |
+            dist/VeriNest-*-Setup.exe
+            dist/VeriNest-*-windows-portable.zip
+
+      - name: Attach to GitHub release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/VeriNest-*-Setup.exe
+            dist/VeriNest-*-windows-portable.zip

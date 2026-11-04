@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0 (2026-11-04)
+- **Windows 10/11 support**: `VeriNest-x.y.z-Setup.exe` (per-user, no admin rights) and a portable zip,
+  with Python and Icarus Verilog bundled; opens in a Microsoft Edge app window
+- Windows builds are produced and self-tested automatically by GitHub Actions
+- Tools now run with short relative paths, UTF-8 file I/O everywhere, no console windows on Windows
+- "Run self-test" button in the Help dialog
+
 ## 1.1.0 (2026-11-04)
 - **Auto Save**: files are saved 1 s after you stop typing (toggle in the status bar)
 - Waveform: testbench outputs such as `y` are shown by default (Icarus can split one scope into

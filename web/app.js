@@ -810,8 +810,25 @@
         <tr><td><kbd>Ctrl</kbd>+<kbd>J</kbd></td><td>Show / hide bottom panel</td></tr>
         <tr><td><kbd>F12</kbd> on a module name</td><td>Go to its definition</td></tr>
         <tr><td colspan="2" style="padding-top:10px;color:var(--fg-3)">Waveform: <kbd>Ctrl</kbd>+wheel zoom · drag to pan · click = cursor · <kbd>Shift</kbd>+click = marker · <kbd>←</kbd>/<kbd>→</kbd> jump to edges · <kbd>F</kbd> fit · <kbd>Del</kbd> remove signal</td></tr>
-        </table><p style="margin-top:12px;color:var(--fg-3)">Workspace: <code>${esc(S.workspace || '~/VeriNest')}</code></p>`,
+        </table><p style="margin-top:12px;color:var(--fg-3)">Workspace: <code>${esc(S.workspace || '~/VeriNest')}</code></p>
+        <p><button class="btn" id="btnSelftest">${vnIcon('check')}Run self-test</button>
+        <span style="color:var(--fg-3);font-size:12px">&nbsp;simulates every example to check the installation</span></p>`,
     });
+    $('#btnSelftest').onclick = runSelftest;
+  }
+
+  async function runSelftest() {
+    $('#modal').classList.add('hidden');
+    setRunStatus('busy', 'Self-test: simulating all examples…');
+    showPanel_('console');
+    $('#console').textContent = 'Running self-test…';
+    try {
+      const r = await api('/api/selftest', {});
+      $('#console').innerHTML = esc(r.report)
+        .replace(/^(.*\[PASS\].*|ALL EXAMPLES PASSED)$/gm, '<span class="c-ok">$1</span>')
+        .replace(/^(.*\[FAIL\].*|SOME EXAMPLES FAILED|.*NOT FOUND.*)$/gm, '<span class="c-bad">$1</span>');
+      setRunStatus(r.ok ? 'ok' : 'bad', r.ok ? 'Self-test passed' : 'Self-test failed');
+    } catch (e) { setRunStatus('bad', 'Self-test error'); toast(e.message, true); }
   }
 
   function renderTools() {
