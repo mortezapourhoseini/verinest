@@ -4,7 +4,7 @@ usage:  brew install icarus-verilog && pip install pyinstaller pywebview
         python packaging/macos/build.py
 
 Icarus Verilog from Homebrew is copied into the bundle
-(VeriNest.app/Contents/Frameworks/iverilog). Its non-system dylibs are copied
+(VeriNest.app/Contents/Resources/iverilog). Its non-system dylibs are copied
 next to it and re-linked with @loader_path, so the app does not need Homebrew.
 Everything is ad-hoc signed; the app is not notarised (see README).
 """
@@ -54,7 +54,8 @@ def make_writable(p):
 
 def bundle_iverilog(app):
     prefix = os.path.realpath(sh('brew', '--prefix', 'icarus-verilog', capture=True).strip())
-    dst = os.path.join(app, 'Contents', 'Frameworks', 'iverilog')
+    # Resources, not Frameworks: Frameworks may only hold code, and Icarus also has .conf data files
+    dst = os.path.join(app, 'Contents', 'Resources', 'iverilog')
     os.makedirs(os.path.join(dst, 'bin'), exist_ok=True)
     for exe in ('iverilog', 'vvp'):
         shutil.copy2(os.path.realpath(os.path.join(prefix, 'bin', exe)), os.path.join(dst, 'bin', exe))
@@ -62,6 +63,10 @@ def bundle_iverilog(app):
                     dirs_exist_ok=True)
     libs = os.path.join(dst, 'libs')
     os.makedirs(libs, exist_ok=True)
+    # Homebrew files are read-only; codesign and install_name_tool need to write them
+    for dp, dns, fns in os.walk(dst):
+        for n in dns + fns:
+            make_writable(os.path.join(dp, n))
 
     queue = []
     for dp, _, fns in os.walk(dst):
@@ -119,8 +124,9 @@ def main():
     sh('plutil', '-replace', 'CFBundleVersion', '-string', __version__, plist)
     sh('plutil', '-replace', 'NSHighResolutionCapable', '-bool', 'YES', plist)
     sh('plutil', '-replace', 'LSMinimumSystemVersion', '-string', '11.0', plist)
-    sh('codesign', '--force', '--deep', '--sign', '-', app)
-    sh('codesign', '--verify', '--deep', '--strict', app)
+    # inner binaries are already signed one by one; now seal the bundle itself
+    sh('codesign', '--force', '--sign', '-', app)
+    sh('codesign', '--verify', '--verbose=2', app)
 
     # DMG with an Applications shortcut and a short note about Gatekeeper
     arch = 'apple-silicon' if platform.machine() == 'arm64' else 'intel'
