@@ -5,7 +5,7 @@
 <h1 align="center">VeriNest</h1>
 
 <p align="center">
-  A lightweight, offline desktop IDE for <b>learning and testing Verilog</b> on Linux and Windows.<br>
+  A lightweight, offline desktop IDE for <b>learning and testing Verilog</b> on Linux, Windows and macOS.<br>
   Write a module, get instant explained errors, simulate with Icarus Verilog and inspect the waveforms, all in one window.
 </p>
 
@@ -69,6 +69,26 @@ unzip it and run `VeriNest.exe`.
 Windows may show *"Windows protected your PC"* because the installer is not code-signed:
 click **More info → Run anyway**. Verilator is not included on Windows; it is optional.
 
+### macOS (Apple Silicon and Intel)
+
+Download the `.dmg` that matches your Mac from the
+[Releases](https://github.com/mortezapourhoseini/verinest/releases) page:
+**`VeriNest-x.y.z-macOS-apple-silicon.dmg`** (M1/M2/M3/M4) or
+**`VeriNest-x.y.z-macOS-intel.dmg`**. Open it and drag **VeriNest** into **Applications**.
+Icarus Verilog is included, so you don't need Homebrew.
+
+VeriNest is not signed with a paid Apple developer certificate, so macOS blocks it the first
+time. Allow it once, using either method:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/VeriNest.app
+```
+
+or double-click VeriNest, close the warning, then go to **System Settings → Privacy & Security →
+Open Anyway**.
+
+From source with Homebrew: `./install-mac.sh` (adds VeriNest to Launchpad).
+
 ### Linux
 
 Linux: tested on **Linux Mint 22 / Ubuntu 24.04**. It should also work on other Debian-based
@@ -106,7 +126,7 @@ python3 -m verinest                      # run from the repository folder
 VeriNest is a small local web app (Python standard-library server + browser UI) shown in its
 own window:
 
-1. **Chrome / Chromium / Brave** in app mode (its own window, no tabs) if one of them is installed;
+1. **macOS**: a native window (WebKit, via pywebview). **Windows**: Microsoft Edge in app mode. **Linux**: **Chrome / Chromium / Brave** in app mode (its own window, no tabs), if one is installed;
 2. otherwise **pywebview**, if it is installed;
 3. otherwise your default browser.
 

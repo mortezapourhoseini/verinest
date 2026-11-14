@@ -2,7 +2,7 @@
 
 # VeriNest
 
-یک محیط سبک و آفلاین برای **یادگیری و تست Verilog** روی لینوکس و ویندوز. کد ماژول را می‌نویسید، خطاها همان لحظه با توضیح نشان داده می‌شوند، با Icarus Verilog شبیه‌سازی می‌کنید و waveform را در همان پنجره می‌بینید.
+یک محیط سبک و آفلاین برای **یادگیری و تست Verilog** روی لینوکس، ویندوز و مک. کد ماژول را می‌نویسید، خطاها همان لحظه با توضیح نشان داده می‌شوند، با Icarus Verilog شبیه‌سازی می‌کنید و waveform را در همان پنجره می‌بینید.
 
 [English](README.md)
 
@@ -36,6 +36,18 @@ Vivado و ModelSim سنگین‌اند و برای تمرین Verilog زیادی
 فایل **`VeriNest-x.y.z-Setup.exe`** را از صفحهٔ [Releases](https://github.com/mortezapourhoseini/verinest/releases) دانلود و اجرا کنید. دسترسی Administrator لازم نیست و پایتون و Icarus Verilog داخل خود نصب‌کننده هستند. برنامه در یک پنجرهٔ مستقل Edge باز می‌شود. نسخهٔ portable (فایل zip) هم هست.
 
 اگر ویندوز پیام *Windows protected your PC* نشان داد، علتش این است که نصب‌کننده امضای دیجیتال ندارد. روی **More info** و بعد **Run anyway** بزنید.
+
+### مک (Apple Silicon و Intel)
+
+از صفحهٔ [Releases](https://github.com/mortezapourhoseini/verinest/releases) فایل `.dmg` مناسب سیستم خود را دانلود کنید: برای مک‌های M1 تا M4 فایل `apple-silicon` و برای مک‌های قدیمی‌تر فایل `intel`. آن را باز کنید و **VeriNest** را به پوشهٔ **Applications** بکشید. Icarus Verilog داخل خود برنامه است و Homebrew لازم نیست.
+
+برنامه امضای اپل ندارد، پس بار اول macOS آن را باز نمی‌کند. برای اجازه دادن، یکی از این دو کار را فقط یک بار انجام دهید:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/VeriNest.app
+```
+
+یا برنامه را باز کنید، پیام هشدار را ببندید و بعد در **System Settings ← Privacy & Security** روی **Open Anyway** بزنید.
 
 ### لینوکس
 

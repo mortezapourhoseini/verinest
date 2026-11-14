@@ -23,22 +23,53 @@ MAX_OUTPUT = 200_000
 
 
 IS_WIN = os.name == 'nt'
+IS_MAC = sys.platform == 'darwin'
 NO_WINDOW = 0x08000000 if IS_WIN else 0     # CREATE_NO_WINDOW: no console flashes on Windows
 
 
 def _bundled_dirs():
-    """Icarus Verilog shipped next to VeriNest (Windows build), then common install places."""
-    roots = [APP_DIR, os.path.dirname(os.path.abspath(sys.executable))]
-    dirs = [os.path.join(r, 'iverilog', 'bin') for r in roots]
+    """Icarus Verilog shipped inside VeriNest (Windows / macOS builds), then common install places."""
+    exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+    roots = [APP_DIR, exe_dir,
+             os.path.join(exe_dir, '..', 'Frameworks'),     # macOS .app bundle
+             os.path.join(exe_dir, '..', 'Resources')]
+    dirs = [os.path.normpath(os.path.join(r, 'iverilog', 'bin')) for r in roots]
     if IS_WIN:
         dirs += [r'C:\iverilog\bin', r'C:\Program Files\iverilog\bin']
     return [d for d in dirs if os.path.isdir(d)]
 
 
+# apps started from the macOS Finder/Dock do not get the shell PATH: add Homebrew's folders
+if IS_MAC:
+    for _d in ('/usr/local/bin', '/opt/homebrew/bin'):
+        if os.path.isdir(_d) and _d not in os.environ.get('PATH', '').split(os.pathsep):
+            os.environ['PATH'] = _d + os.pathsep + os.environ.get('PATH', '')
+
 # make bundled tools visible to every subprocess (vvp needs its own folder on PATH on Windows)
 for _d in reversed(_bundled_dirs()):
     if _d not in os.environ.get('PATH', ''):
         os.environ['PATH'] = _d + os.pathsep + os.environ.get('PATH', '')
+
+
+def ivl_flags():
+    """Extra flags for a relocated (bundled) Icarus on macOS/Linux.
+
+    The Unix build of Icarus looks for its helper programs and VPI modules in the
+    folder it was compiled for, so a copy shipped inside VeriNest is told where
+    they are: iverilog -B <lib/ivl>, vvp -M <lib/ivl>. Windows builds find them
+    relative to the .exe and need nothing.
+    """
+    if IS_WIN:
+        return [], []
+    iv = shutil.which('iverilog')
+    if not iv:
+        return [], []
+    for d in _bundled_dirs():
+        if os.path.normpath(os.path.dirname(iv)) == os.path.normpath(d):
+            lib = os.path.normpath(os.path.join(d, '..', 'lib', 'ivl'))
+            if os.path.isdir(lib):
+                return ['-B', lib], ['-M', lib]
+    return [], []
 
 
 def which(name):
@@ -280,7 +311,8 @@ def lint(project, overrides=None):
         iv = which('iverilog')
         if iv and paths:
             try:
-                r = run([iv, '-g2005', '-Wall', '-Wno-timescale', '-t', 'null', '-I', '.'] + paths, timeout=20, cwd=wd)
+                r = run([iv] + ivl_flags()[0] + ['-g2005', '-Wall', '-Wno-timescale', '-t', 'null', '-I', '.'] + paths,
+                        timeout=20, cwd=wd)
                 diags += explain.parse_iverilog(r.stdout + '\n' + r.stderr, pmap)
             except subprocess.TimeoutExpired:
                 pass
@@ -372,7 +404,8 @@ def simulate(project, top=None, overrides=None, current_file=None):
         paths.append('.verinest/__verinest_dump.v')
         tops += ['-s', '__verinest_dump']
     out_vvp = os.path.join('.verinest', 'sim.vvp')
-    r = run([iv, '-g2005', '-Wall', '-Wno-timescale', '-o', out_vvp, '-I', '.verinest/src'] + tops + paths,
+    iv_b, vvp_m = ivl_flags()
+    r = run([iv] + iv_b + ['-g2005', '-Wall', '-Wno-timescale', '-o', out_vvp, '-I', '.verinest/src'] + tops + paths,
             timeout=30, cwd=base)
     comp_out = r.stdout + r.stderr
     res['diagnostics'] = explain.enrich(explain.parse_iverilog(comp_out, pmap), files)
@@ -383,7 +416,7 @@ def simulate(project, top=None, overrides=None, current_file=None):
         return res
     res['phase'] = 'run'
     try:
-        p = run([vvp, '-n', out_vvp], timeout=SIM_TIMEOUT, cwd=base)
+        p = run([vvp] + vvp_m + ['-n', out_vvp], timeout=SIM_TIMEOUT, cwd=base)
         out = p.stdout + p.stderr
         res['returncode'] = p.returncode
         res['ok'] = p.returncode == 0
@@ -447,7 +480,8 @@ def run_selftest(out, version=''):
             out('  %-10s %s' % (k, v['version'] or 'NOT FOUND'))
         if not st['iverilog']['path']:
             out('')
-            out('Icarus Verilog is missing: ' + ('reinstall VeriNest' if IS_WIN else 'sudo apt install iverilog'))
+            out('Icarus Verilog is missing: ' + ('reinstall VeriNest' if IS_WIN else
+                                                 'brew install icarus-verilog' if IS_MAC else 'sudo apt install iverilog'))
             return 1
         out('')
         for ex in list_examples():

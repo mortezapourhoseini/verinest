@@ -37,6 +37,13 @@ def _app_browsers():
             p = shutil.which(n)
             if p and p not in found:
                 found.append(p)
+    elif sys.platform == 'darwin':
+        for app, exe in (('Google Chrome', 'Google Chrome'), ('Microsoft Edge', 'Microsoft Edge'),
+                         ('Brave Browser', 'Brave Browser'), ('Chromium', 'Chromium')):
+            for base in ('/Applications', os.path.expanduser('~/Applications')):
+                p = os.path.join(base, app + '.app', 'Contents', 'MacOS', exe)
+                if os.path.isfile(p):
+                    found.append(p)
     else:
         for b in APP_BROWSERS:
             p = shutil.which(b)
@@ -45,9 +52,20 @@ def _app_browsers():
     return found
 
 
+def _run_pywebview(url):
+    import webview  # type: ignore
+    webview.create_window('VeriNest', url, width=1440, height=900, min_size=(900, 600))
+    try:   # keep settings (theme, auto save) between launches
+        webview.start(private_mode=False, storage_path=os.path.join(_data_dir(), 'webview'))
+    except TypeError:   # older pywebview
+        webview.start()
+
+
 def _data_dir():
     if os.name == 'nt':
         return os.path.join(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'VeriNest')
+    if sys.platform == 'darwin':
+        return os.path.expanduser('~/Library/Application Support/VeriNest')
     return os.path.expanduser('~/.config/verinest')
 
 
@@ -66,6 +84,13 @@ def _wait_idle(timeout=45):
 
 def run_window(srv, force_browser=False):
     url = _url(srv)
+    if not force_browser and sys.platform == 'darwin':
+        # macOS: a native window (WKWebView, built into the system) is the best fit
+        try:
+            _run_pywebview(url)
+            return
+        except Exception:
+            pass
     if not force_browser:
         # 1) Chrome/Chromium "app mode": a standalone window, no tabs or address bar
         for exe in _app_browsers():
@@ -84,9 +109,7 @@ def run_window(srv, force_browser=False):
             return
         # 2) pywebview (GTK WebKit) if installed
         try:
-            import webview  # type: ignore
-            webview.create_window('VeriNest', url, width=1440, height=900, min_size=(900, 600))
-            webview.start()
+            _run_pywebview(url)
             return
         except Exception:
             pass
@@ -114,7 +137,7 @@ def main():
     ap.add_argument('--port', type=int, default=0)
     ap.add_argument('--selftest', action='store_true', help='run all examples and report')
     ap.add_argument('--version', action='version', version='VeriNest ' + __version__)
-    a = ap.parse_args()
+    a, _unknown = ap.parse_known_args()   # macOS may pass -psn_... when started from Finder
     if a.selftest:
         sys.exit(selftest())
     srv = server.start(a.port)

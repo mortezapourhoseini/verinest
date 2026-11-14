@@ -1,0 +1,22 @@
+VeriNest for macOS
+==================
+
+1. Drag VeriNest into the Applications folder.
+
+2. VeriNest is free, open-source software and is not signed with a paid Apple
+   developer certificate, so macOS blocks it the first time. To allow it, do ONE of:
+
+   a) Open Terminal and run:
+          xattr -dr com.apple.quarantine /Applications/VeriNest.app
+      then open VeriNest normally.
+
+   b) Double-click VeriNest, close the warning, then open
+      System Settings > Privacy & Security, scroll down and click "Open Anyway".
+
+   You only need to do this once.
+
+3. Check that everything works: open the "?" (Help) menu in VeriNest and click
+   "Run self-test". It should end with ALL EXAMPLES PASSED.
+
+Your projects are stored in ~/VeriNest/projects.
+Source code, help and bug reports: https://github.com/mortezapourhoseini/verinest

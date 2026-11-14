@@ -1,0 +1,72 @@
+name: macOS build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to attach files to a GitHub release on tags
+
+jobs:
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15          # Apple Silicon (M1/M2/M3/M4)
+            arch: apple-silicon
+          - runner: macos-15-intel    # Intel Macs
+            arch: intel
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Icarus Verilog
+        run: |
+          brew install icarus-verilog
+          iverilog -V | head -n1
+          echo "--- dynamic libraries used by Homebrew's Icarus ---"
+          otool -L "$(brew --prefix icarus-verilog)/bin/vvp"
+
+      - name: Unit tests
+        run: python -m unittest discover tests -v
+
+      - name: Self-test from source (all examples)
+        run: python -m verinest --selftest
+
+      - name: Build VeriNest.app and DMG
+        run: |
+          python -m pip install --upgrade pip pyinstaller pywebview
+          python packaging/macos/build.py
+
+      - name: Smoke test the built app (with its bundled Icarus only)
+        run: |
+          brew unlink icarus-verilog
+          ! command -v iverilog
+          export PATH="/usr/bin:/bin:/usr/sbin:/sbin"
+          dist/VeriNest.app/Contents/MacOS/VeriNest --selftest || {
+            cat "$HOME/Library/Application Support/VeriNest/verinest.log" 2>/dev/null; exit 1; }
+
+      - name: Test install-mac.sh (source install)
+        run: |
+          brew link icarus-verilog
+          ./install-mac.sh
+          "$HOME/.local/bin/verinest" --selftest
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VeriNest-macOS-${{ matrix.arch }}
+          path: dist/VeriNest-*.dmg
+
+      - name: Attach to GitHub release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/VeriNest-*.dmg

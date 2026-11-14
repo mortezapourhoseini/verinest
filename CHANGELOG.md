@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.0 (2026-11-14)
+- **macOS support** (Apple Silicon and Intel): `VeriNest-x.y.z-macOS-<arch>.dmg` with Icarus Verilog
+  bundled, native window (WebKit via pywebview); built and self-tested by GitHub Actions
+- `install-mac.sh` for installing from source with Homebrew
+- Homebrew folders are added to PATH for apps started from Finder / Dock
+
 ## 1.2.0 (2026-11-04)
 - **Windows 10/11 support**: `VeriNest-x.y.z-Setup.exe` (per-user, no admin rights) and a portable zip,
   with Python and Icarus Verilog bundled; opens in a Microsoft Edge app window
