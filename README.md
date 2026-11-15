@@ -219,3 +219,4 @@ bug fixes and translations are all great first contributions. See
 ## License
 
 [MIT](LICENSE). Monaco Editor is © Microsoft, MIT licensed (`web/vendor/monaco/LICENSE`).
+---
